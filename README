@@ -36,7 +36,7 @@ $RELPATH variable is always taken as the source, and the value of the only
 command line argument is taken as the destination. If the argument is missing,
 the current working directory is used.
 
-If the relative path would go through the file system root, the relative path
+If the relative path would go through the file system root, the absolute path
 is returned instead.
 
 The librelpath_ps1 library can be used for your prompt ($PS1 in bash). To do
