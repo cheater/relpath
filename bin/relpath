@@ -1,0 +1,187 @@
+#!/bin/bash
+# usage: common_root dir1 dir2 -> relative path from dir1 to dir2
+
+error=0
+
+type realpath >/dev/null 2>&1
+if ! [ "$?" -eq 0 ]; then
+  echo "$0: \`realpath' not found." >&2
+  error=1
+  fi
+
+type basename >/dev/null 2>&1
+if ! [ "$?" -eq 0 ]; then
+  echo "$0: \`basename' not found." >&2
+  error=1
+  fi
+
+type dirname >/dev/null 2>&1
+if ! [ "$?" -eq 0 ]; then
+  echo "$0: \`dirname' not found." >&2
+  error=1
+  fi
+
+if [ "$error" -gt 0 ]; then
+  echo "$0: exiting due to errors." >&2
+  exit 1
+  fi
+
+if [ "$#" -lt 2 ]; then
+  if [ -z "$RELPATH" ]; then
+    echo "$0: not enough parameters and \$RELPATH not set." >&2
+    exit 1
+    fi
+  src="$RELPATH"
+  if [ "$#" -eq 0 ]; then
+    dest="$PWD"
+    fi
+  if [ "$#" -eq 1 ]; then
+    dest="$1"
+    fi
+  fi
+
+if [ "$#" -eq 2 ]; then
+  src="$1"
+  dest="$2"
+  fi
+
+if [ "$#" -gt 2 ]; then
+  echo "$0: too many parameters."
+  exit 1
+  fi
+
+if [ -d "$src" ]; then
+  src_dir="$src"
+  src_file=""
+else
+  src_dir=$(dirname "$src")
+  src_file=$(basename "$src")
+  fi
+
+if [ -d "$dest" ]; then
+  dest_dir="$dest"
+  dest_file=""
+else
+  dest_dir=$(dirname "$dest")
+  dest_file=$(basename "$dest")
+  fi
+
+oldpwd=$PWD
+
+error=0
+if ! [ -d "$src_dir" ]; then
+  echo "$0: source directory not found." >&2
+  error=1
+  fi
+
+if ! [ -d "$dest_dir" ]; then
+  echo "$0: destination directory not found." >&2
+  error=1
+  fi
+
+if [ "$error" -gt 0 ]; then
+  echo "$0: exiting due to errors." >&2
+  exit 1
+  fi
+
+# arrays that contain the directories descending towards the final directory,
+# in reverse order
+declare -a sa
+declare -a da
+
+cd "$oldpwd"; cd "$src_dir"
+declare -i i
+i=0
+while :; do
+  sa[$i]="$PWD"
+  cd ..
+  for el in ${sa[@]}; do
+    if [ "x$el" = "x$PWD" ] ; then
+      break 2;
+      fi
+    done
+  i="$i+1"
+  done
+
+cd "$oldpwd"; cd "$dest_dir"
+i=0
+while :; do
+  da[$i]="$PWD"
+  cd ..
+  for el in ${da[@]}; do
+    if [ "x$el" = "x$PWD" ] ; then
+      break 2;
+      fi
+    done
+  i="$i+1"
+  done
+
+declare -i is
+declare -i id
+is=${#sa[@]}
+id=${#da[@]}
+
+declare -i found
+found=0
+while :; do
+  if [ "$is" -lt 0 ] || [ "$id" -lt 0 ]; then
+    break
+    fi
+  if [ "x${sa[$is]}" = "x${da[$id]}" ]; then
+    is="$is-1"
+    id="$id-1"
+    found="$found+1"
+  else
+    break
+    fi
+  done
+
+if [ "$found" -lt 3 ]; then
+  # we have to climb to the top anyways..
+  cd "$dest_dir"
+  echo "$PWD"
+  cd "$oldpwd"
+  exit
+  fi
+
+is="$is+1"
+id="$id+1"
+
+ascent=""
+while :; do
+  if [ $is -eq 0 ]; then
+    break
+    fi
+  if [ -z "$ascent" ]; then
+    ascent=".."
+  else
+    ascent="$ascent/.."
+    fi
+  is="$is-1"
+  done
+
+descent=""
+while :; do
+  if [ $id -eq 0 ]; then
+    break
+    fi
+  id="$id-1"
+  if [ -n "$descent" ]; then
+    descent="$descent/"
+    fi
+  bn=$(basename "${da[$id]}")
+  descent="$descent$bn"
+  done
+
+end=""
+if [ -n "$dest_file" ]; then
+  end="/$dest_file"
+  fi
+
+slash=""
+if [ -n "$ascent" ] && [ -n "$descent" ]; then
+  slash="/"
+  fi
+
+cd "$oldpwd";
+echo "$ascent$slash$descent$end"
